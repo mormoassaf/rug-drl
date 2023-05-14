@@ -48,15 +48,19 @@ class DQNConvBlock(torch.nn.Module):
     
 class QNetworkConv(torch.nn.Module):
 
-    def __init__(self, in_channels: int, spatial_size: tuple, output_size: int):
+    def __init__(self, 
+                 in_channels: int, 
+                 spatial_size: tuple, 
+                 output_size: int,
+                 dropout: float = 0.0):
         super(QNetworkConv, self).__init__()
         self.in_channels = in_channels
         self.spatial_size = spatial_size
         self.output_size = output_size
     
-        self.conv1 = DQNConvBlock(self.in_channels, 32, kernel_size=8, stride=4)
-        self.conv2 = DQNConvBlock(32, 64, kernel_size=4, stride=2)
-        self.conv3 = DQNConvBlock(64, 64, kernel_size=3)
+        self.conv1 = DQNConvBlock(self.in_channels, 32, kernel_size=8, stride=4, dropout=dropout)
+        self.conv2 = DQNConvBlock(32, 64, kernel_size=4, stride=2, dropout=dropout)
+        self.conv3 = DQNConvBlock(64, 64, kernel_size=3, stride=1, dropout=dropout)
 
         conv_out_size = self._get_conv_out_size()
         # output should be (batch, output_size)
