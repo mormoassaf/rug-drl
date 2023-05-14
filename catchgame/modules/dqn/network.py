@@ -52,7 +52,7 @@ class QNetworkConv(torch.nn.Module):
                  in_channels: int, 
                  spatial_size: tuple, 
                  output_size: int,
-                 dropout: float = 0.0):
+                 dropout: float = 0.2):
         super(QNetworkConv, self).__init__()
         self.in_channels = in_channels
         self.spatial_size = spatial_size
