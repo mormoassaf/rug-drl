@@ -20,6 +20,32 @@ class QNetwork(torch.nn.Module):
         return self.fc3(x)
     
 
+class DQNConvBlock(torch.nn.Module):
+
+    def __init__(self, 
+                 in_channels: int, 
+                 out_channels: int, 
+                 kernel_size: int, 
+                 stride: int = 1, 
+                 dropout: float = 0.2):
+        super(DQNConvBlock, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+        self.conv = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, self.stride)
+        self.activation = nn.ReLU()
+        self.bn = nn.BatchNorm2d(self.out_channels)
+        self.dropout = nn.Dropout2d(dropout)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.activation(x)
+        x = self.bn(x)
+        x = self.dropout(x)
+        return x
+    
 class QNetworkConv(torch.nn.Module):
 
     def __init__(self, in_channels: int, spatial_size: tuple, output_size: int):
@@ -28,9 +54,9 @@ class QNetworkConv(torch.nn.Module):
         self.spatial_size = spatial_size
         self.output_size = output_size
     
-        self.conv1 = nn.Conv2d(self.in_channels, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3)
+        self.conv1 = DQNConvBlock(self.in_channels, 32, kernel_size=8, stride=4)
+        self.conv2 = DQNConvBlock(32, 64, kernel_size=4, stride=2)
+        self.conv3 = DQNConvBlock(64, 64, kernel_size=3)
 
         conv_out_size = self._get_conv_out_size()
         # output should be (batch, output_size)
