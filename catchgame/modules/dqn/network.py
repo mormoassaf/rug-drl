@@ -75,7 +75,6 @@ class QNetworkConv(torch.nn.Module):
         return x.numel()
     
     def forward(self, x):
-        x = x.float() / 255
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
