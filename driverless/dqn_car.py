@@ -3,6 +3,11 @@ import airsim
 import os
 import numpy as np
 from PIL import Image
+import logging
+
+NUM_EPISODES = 5
+
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
 # connect to the AirSim simulator
 client = airsim.CarClient()
@@ -10,11 +15,6 @@ client.reset()
 client.confirmConnection()
 client.enableApiControl(True)
 client.armDisarm(True)
-
-# take images
-# responses = client.simGetImages([
-#     airsim.ImageRequest("0", airsim.ImageType.DepthVis),
-#     airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True)])
 
 car_controls = airsim.CarControls()
 
@@ -36,28 +36,42 @@ def interpret_action(action):
         car_controls.steering = -0.25
     return car_controls
 
-done = False
-while not done:
-    # obtain state and image and relevant info to compute reward
-    action = np.random.randint(0, 6)
-    state = client.getCarState()
-    car_controls = interpret_action(action)
-    client.setCarControls(car_controls)
-    
-    # get camera images from the car
-    res_depth_vis, res_depth_plannar, res_scene = client.simGetImages([
-        airsim.ImageRequest("0", airsim.ImageType.DepthVis, True, False),
-        airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True),
-        airsim.ImageRequest("2", airsim.ImageType.Scene, False, False),
-    ])
+for eps_i in range(NUM_EPISODES):
+    client.reset()
 
-    depth_vis = np.array(res_depth_vis.image_data_float, dtype=np.float32)
-    depth_vis = depth_vis.reshape(res_depth_vis.height, res_depth_vis.width)
-    scene = np.frombuffer(res_scene.image_data_uint8, dtype=np.uint8)
-    scene = scene.reshape(res_scene.height, res_scene.width, 3)
+    i = 0
+    done = False
+    logging.info(f"Episode {eps_i}")
 
-    # tranform and save images in temp enumerated by i
-    Image.fromarray(scene).save(os.path.normpath('./temp/scene' + str(i) + '.png'))
-    
-    # print state details
-    print(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}")
+    while not done:
+        i += 1
+        # obtain state and image and relevant info to compute reward
+        action = np.random.randint(0, 6)
+        car_controls = interpret_action(action)
+        client.setCarControls(car_controls)
+        
+        # get camera images from the car
+        res_depth_vis, res_depth_plannar, res_scene = client.simGetImages([
+            airsim.ImageRequest("0", airsim.ImageType.DepthVis, True, False),
+            airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True),
+            airsim.ImageRequest("2", airsim.ImageType.Scene, False, False),
+        ])
+
+        depth_vis = np.array(res_depth_vis.image_data_float, dtype=np.float32)
+        depth_vis = depth_vis.reshape(res_depth_vis.height, res_depth_vis.width)
+        scene = np.frombuffer(res_scene.image_data_uint8, dtype=np.uint8)
+        scene = scene.reshape(res_scene.height, res_scene.width, 3)
+        planner = np.array(res_depth_plannar.image_data_float, dtype=np.float32)
+        planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width)
+
+        # tranform and save images in temp enumerated by i
+        Image.fromarray(scene).save(os.path.normpath('./temp/scene_' + str(i) + '.png'))
+        Image.fromarray(depth_vis.astype("uint8")).save(os.path.normpath('./temp/depth_vis_' + str(i) + '.png'))
+        Image.fromarray(planner.astype("uint8")).save(os.path.normpath('./temp/planner_' + str(i) + '.png'))
+        state = client.getCarState()
+        
+        # print state details
+        logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}")
+
+        # Check if car is stuck
+        done = np.abs(state.speed) < 0.1 and i > 4
