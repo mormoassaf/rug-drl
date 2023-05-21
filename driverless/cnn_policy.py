@@ -8,7 +8,34 @@ from torch.distributions import Categorical
 from stable_baselines3.common.policies import BasePolicy, ActorCriticPolicy
 from torch import Tensor
 from stable_baselines3.common.utils import constant_fn
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from torch import nn
 
+class DQNConvBlock(th.nn.Module):
+
+    def __init__(self, 
+                 in_channels: int, 
+                 out_channels: int, 
+                 kernel_size: int, 
+                 stride: int = 1, 
+                 dropout: float = 0.2):
+        super(DQNConvBlock, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+        self.conv = nn.Conv2d(self.in_channels, self.out_channels, self.kernel_size, self.stride)
+        self.activation = nn.ReLU()
+        self.bn = nn.BatchNorm2d(self.out_channels)
+        self.dropout = nn.Dropout2d(dropout)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.activation(x)
+        x = self.bn(x)
+        x = self.dropout(x)
+        return x
 
 class CNNFeatureExtractor(BaseFeaturesExtractor):
     """
@@ -17,15 +44,24 @@ class CNNFeatureExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space, features_dim=512, *args, **kwargs):
         super(CNNFeatureExtractor, self).__init__(observation_space, features_dim)
+        # self.cnn = th.nn.Sequential(
+        #     th.nn.Conv2d(128, 32, kernel_size=8, stride=4),
+        #     th.nn.ReLU(),
+        #     th.nn.Conv2d(32, 64, kernel_size=4, stride=2),
+        #     th.nn.ReLU(),
+        #     th.nn.Conv2d(64, 64, kernel_size=3, stride=1),
+        #     th.nn.ReLU(),
+        #     th.nn.Flatten(),
+        #     th.nn.Linear(25088, features_dim),
+        #     th.nn.ReLU()
+        # )
         self.cnn = th.nn.Sequential(
-            th.nn.Conv2d(128, 32, kernel_size=8, stride=4),
-            th.nn.ReLU(),
-            th.nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            th.nn.ReLU(),
-            th.nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            th.nn.ReLU(),
+            DQNConvBlock(128, 32, 8, 4),
+            DQNConvBlock(32, 64, 4, 2),
+            DQNConvBlock(64, 64, 3, 1),
+            DQNConvBlock(64, 64, 3, 1),
             th.nn.Flatten(),
-            th.nn.Linear(25088, features_dim),
+            th.nn.Linear(19968, features_dim),
             th.nn.ReLU()
         )
     

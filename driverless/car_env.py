@@ -46,7 +46,7 @@ class CarEnv(gym.Env):
 
         # Check if the car is stuck
         done = False
-        if reward == -3:
+        if reward == -10:
             done = True
         print(f"time={self.time}, reward={reward}, speed={state['speed_moving_avg']}, action={action}, done={done}")
         self.time += 1
@@ -114,15 +114,19 @@ class CarEnv(gym.Env):
         avg_distance = np.average(lidar)
         # compute caution distance by interpolating between min_speed and max_speed
         alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
-        caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
+        caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 4)
 
-        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-10)
-        reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=-3)
+        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-8)
+        reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=0)
     
     
         print("caution_dist: ", caution_prox, "avg_distance: ", avg_distance, "speed: ", state["speed_moving_avg"]) 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
-            return -3
+            return -10
+        if reward_dist < 0:
+            return reward_dist
+        if reward_speed < 0:
+            return reward_speed
         reward = reward_speed + reward_dist
         print("reward: ", reward, "reward_speed: ", reward_speed, "reward_dist: ", reward_dist)
         return reward
