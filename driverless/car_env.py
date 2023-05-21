@@ -33,6 +33,10 @@ class CarEnv(gym.Env):
 
     def reset(self):
         self.client.reset()
+        # move car forward
+        actions = self._interpret_action(1)
+        for _ in range(10):
+            self.client.setCarControls(actions)
         self.time = 0
         self.observation_buffer = None
         return self._get_obvervation()[0]
@@ -61,7 +65,7 @@ class CarEnv(gym.Env):
         self.client.enableApiControl(False)
         self.client.armDisarm(False)
 
-    def _refresh_state(self, speed_moving_avg_decay=0.1):
+    def _refresh_state(self, speed_moving_avg_decay=0.01):
         prev_state = self.state
         car_state = self.client.getCarState()
         state = {
