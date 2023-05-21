@@ -22,6 +22,8 @@ client.enableApiControl(True)
 client.armDisarm(True)
 
 env = CarEnv(client)
+env.reset()
+pretrained_model = "./models/5000.zip"
 
 # create custom model and learn using conv
 model = A2C(
@@ -32,6 +34,11 @@ model = A2C(
     tensorboard_log="./tensorboard/",
     policy_kwargs=dict(net_arch=[64, 64], activation_fn=th.nn.ReLU, ortho_init=False),
 )
+
+# load pretrained model
+if os.path.exists(pretrained_model):
+    model = A2C.load(pretrained_model, env=env, device='cuda')
+    logging.info(f"Loaded model from {pretrained_model}")
 
 TIMESTEPS = 1000
 iters = 0

@@ -4,6 +4,19 @@ import gym
 
 from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD
 
+# computes reward, if metric is above threshold, reward grows linearly, otherwise it decays exponentially
+def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
+
+    if metric > threshold:
+        reward = (metric - threshold) / m
+        if max_reward is not None:
+            reward = min(reward, max_reward)
+    else:
+        reward = (2.5/threshold) * np.power(metric - threshold, 3)
+        if min_reward is not None:
+            reward = max(reward, min_reward)
+    return reward
+
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -33,9 +46,8 @@ class CarEnv(gym.Env):
 
         # Check if the car is stuck
         done = False
-        if reward < 5:
+        if reward == -3:
             done = True
-            reward = -3
         print(f"time={self.time}, reward={reward}, speed={state['speed_moving_avg']}, action={action}, done={done}")
         self.time += 1
         
@@ -100,19 +112,18 @@ class CarEnv(gym.Env):
         
         car_state = state["car_state"]
         avg_distance = np.average(lidar)
+        # compute caution distance by interpolating between min_speed and max_speed
+        alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
+        caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
-        # ln(2) = 0.69314718056
-        reward_dist = np.exp((avg_distance * 0.69314718056) / CAUTON_PROXIMITY) - 2
-        reward_dist *= 3
-        reward_dist = min(reward_dist, MAX_DIST_REWARD)
-        # reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
-        # reward_speed = min(reward_speed, MAX_SPEED_REWARD)
-        # expo version
-        reward_speed = np.exp((car_state.speed * 0.69314718056) / MIN_SPEED) - 2
-        reward_speed *= 3
-        reward_speed = min(reward_speed, MAX_SPEED_REWARD)
+        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-10)
+        reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=-3)
+    
+    
+        print("caution_dist: ", caution_prox, "avg_distance: ", avg_distance, "speed: ", state["speed_moving_avg"]) 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
             return -3
         reward = reward_speed + reward_dist
-        print("reward: ", reward, "speed: ", reward_speed, "dist: ", reward_dist)
+        print("reward: ", reward, "reward_speed: ", reward_speed, "reward_dist: ", reward_dist)
         return reward
+    
