@@ -6,6 +6,8 @@ from PIL import Image
 import logging
 
 NUM_EPISODES = 5
+MAX_SPEED = 300
+MIN_SPEED = 10
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
@@ -35,6 +37,31 @@ def interpret_action(action):
     else:
         car_controls.steering = -0.25
     return car_controls
+
+def compute_reward(car_state):
+
+    thresh_dist = 3.5
+    beta = 3
+
+    z = 0
+    pts = [np.array([0, -1, z]), np.array([130, -1, z]), np.array([130, 125, z]), np.array([0, 125, z]), np.array([0, -1, z]), np.array([130, -1, z]), np.array([130, -128, z]), np.array([0, -128, z]), np.array([0, -1, z])]
+    pd: airsim.Vector3r = car_state.kinematics_estimated.position
+    car_pt = np.array([pd.x_val, pd.y_val, pd.z_val])
+
+    dist = 10000000
+    for i in range(0, len(pts)-1):
+        dist = min(dist, np.linalg.norm(np.cross((car_pt - pts[i]), (car_pt - pts[i+1])))/np.linalg.norm(pts[i]-pts[i+1]))
+
+    #print(dist)
+    if dist > thresh_dist:
+        print("too far from center line, episode terminated")
+        reward = -3
+    else:
+        reward_dist = (np.exp(-beta*dist) - 0.5)
+        reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
+        reward = reward_dist + reward_speed
+
+    return reward
 
 for eps_i in range(NUM_EPISODES):
     client.reset()
@@ -71,7 +98,12 @@ for eps_i in range(NUM_EPISODES):
         state = client.getCarState()
         
         # print state details
-        logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}")
+        reward = compute_reward(state)
+        logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}, reward={reward}")
 
-        # Check if car is stuck
-        done = np.abs(state.speed) < 0.1 and i > 4
+        # Check 
+        if reward < -1:
+            done = i >= 10
+        if car_controls.brake == 0:
+            if state.speed <= 5:
+                done = i >= 10
