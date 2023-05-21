@@ -54,7 +54,6 @@ def compute_reward(car_state):
 
     #print(dist)
     if dist > thresh_dist:
-        print("too far from center line, episode terminated")
         reward = -3
     else:
         reward_dist = (np.exp(-beta*dist) - 0.5)
