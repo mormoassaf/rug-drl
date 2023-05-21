@@ -37,6 +37,9 @@ class CarEnv(gym.Env):
         actions = self._interpret_action(1)
         for _ in range(10):
             self.client.setCarControls(actions)
+        # perform 5 random actions
+        for _ in range(5):
+            self.step(self.action_space.sample())
         self.time = 0
         self.observation_buffer = None
         return self._get_obvervation()[0]
@@ -84,7 +87,13 @@ class CarEnv(gym.Env):
         scene = scene.reshape(res_scene.height, res_scene.width, 3).astype(np.float32)
         planner = np.array(res_depth_plannar.image_data_float, dtype=np.float32)
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
-        planner /= MAX_DEPTH / 255.0 
+        # clip depth values
+        planner = np.clip(planner, 0, MAX_DEPTH) / MAX_DEPTH
+        planner *= 255
+        planner = np.clip(planner, 0, 255)
+        import PIL
+        planner_img = PIL.Image.fromarray(planner.reshape(res_depth_plannar.height, res_depth_plannar.width).astype(np.uint8))
+        planner_img.save("./temp/1.png")
         observation = np.concatenate((scene, planner), axis=-1)
         if self.observation_buffer is None:
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
@@ -124,10 +133,10 @@ class CarEnv(gym.Env):
         alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
         caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
-        reward_dist = metric2reward(avg_distance * 100, caution_prox * 100, MAX_DIST_REWARD, min_reward=-8)
+        reward_dist = metric2reward(avg_distance * 10, caution_prox * 10, MAX_DIST_REWARD, min_reward=-8)
         reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=0) 
     
-        print("caution_dist: ", caution_prox, "avg_distance: ", avg_distance, "speed: ", state["speed_moving_avg"]) 
+        print("avg_distance: ", avg_distance, "caution_dist: ", caution_prox, ) 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
             return -10
         if reward_dist < 0:
@@ -135,6 +144,6 @@ class CarEnv(gym.Env):
         elif reward_speed < 0:
             reward = reward_speed
         reward = reward_speed + reward_dist
-        print("\treward: ", reward, "reward_speed: ", reward_speed, "reward_dist: ", reward_dist)
+        print("\treward: ", reward,  "reward_dist: ", reward_dist)
         return reward
     
