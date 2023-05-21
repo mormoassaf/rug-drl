@@ -122,18 +122,18 @@ class CarEnv(gym.Env):
         avg_distance = np.average(np.sort(lidar.flatten())[:k])
         # compute caution distance by interpolating between min_speed and max_speed
         alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
-        caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 4)
+        caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
-        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-8) * 100
+        reward_dist = metric2reward(avg_distance * 100, caution_prox * 100, MAX_DIST_REWARD, min_reward=-8)
         reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=0) 
     
         print("caution_dist: ", caution_prox, "avg_distance: ", avg_distance, "speed: ", state["speed_moving_avg"]) 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
             return -10
         if reward_dist < 0:
-            return reward_dist
-        if reward_speed < 0:
-            return reward_speed
+            reward = reward_dist
+        elif reward_speed < 0:
+            reward = reward_speed
         reward = reward_speed + reward_dist
         print("\treward: ", reward, "reward_speed: ", reward_speed, "reward_dist: ", reward_dist)
         return reward
