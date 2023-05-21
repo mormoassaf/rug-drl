@@ -33,10 +33,9 @@ class CarEnv(gym.Env):
 
         # Check if the car is stuck
         done = False
-        if state["speed_moving_avg"] <= MIN_SPEED:
-            done = self.time >= 10
-            if done:
-                reward = -10
+        if reward < 5:
+            done = True
+            reward = -3
         print(f"time={self.time}, reward={reward}, speed={state['speed_moving_avg']}, action={action}, done={done}")
         self.time += 1
         
@@ -106,8 +105,14 @@ class CarEnv(gym.Env):
         reward_dist = np.exp((avg_distance * 0.69314718056) / CAUTON_PROXIMITY) - 2
         reward_dist *= 3
         reward_dist = min(reward_dist, MAX_DIST_REWARD)
-        reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
+        # reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
+        # reward_speed = min(reward_speed, MAX_SPEED_REWARD)
+        # expo version
+        reward_speed = np.exp((car_state.speed * 0.69314718056) / MIN_SPEED) - 2
+        reward_speed *= 3
         reward_speed = min(reward_speed, MAX_SPEED_REWARD)
+        if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
+            return -3
         reward = reward_speed + reward_dist
         print("reward: ", reward, "speed: ", reward_speed, "dist: ", reward_dist)
-        return reward + 10
+        return reward
