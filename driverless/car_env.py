@@ -11,7 +11,7 @@ class CarEnv(gym.Env):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(84, 84, 4*frame_rate), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(4*frame_rate, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = self._refresh_state()
@@ -20,6 +20,8 @@ class CarEnv(gym.Env):
     def reset(self):
         self.client.reset()
         self.time = 0
+        self.observation_buffer = None
+        return self._get_obvervation()
 
     def step(self, action):        
         state = self._refresh_state()
@@ -70,6 +72,8 @@ class CarEnv(gym.Env):
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
         else:
             self.observation_buffer = np.concatenate((self.observation_buffer[:, :, 4:], observation), axis=-1)
+        observation = np.moveaxis(self.observation_buffer, -1, 0)
+
         return observation
 
     def _interpret_action(self, action):
