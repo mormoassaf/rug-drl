@@ -1,25 +1,8 @@
-# ready to run example: PythonClient/multirotor/hello_drone.py
 import airsim
-import os
 import numpy as np
-from PIL import Image
-import logging
 import gym
 
-NUM_EPISODES = 5
-MAX_SPEED = 300
-MIN_SPEED = 10
-MAX_DEPTH = 65536
-
-logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
-
-# connect to the AirSim simulator
-client = airsim.CarClient()
-client.reset()
-client.confirmConnection()
-client.enableApiControl(True)
-client.armDisarm(True)
-
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED
 
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -46,10 +29,10 @@ class CarEnv(gym.Env):
         # Check if done
         done = False
         if reward < -1:
-            done = self.time >= 10
+            done = self.time >= 20
         if self.car_controls.brake == 0:
             if state["car_state"].speed <= 4:
-                done = self.time >= 10
+                done = self.time >= 20
         self.time += 1
         
         return observation, reward, done, {}
@@ -71,7 +54,7 @@ class CarEnv(gym.Env):
         return state
 
     def _get_obvervation(self):
-        res_depth_plannar, res_scene = client.simGetImages([
+        res_depth_plannar, res_scene = self.client.simGetImages([
             airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True),
             airsim.ImageRequest("2", airsim.ImageType.Scene, False, False),
         ])
@@ -126,31 +109,3 @@ class CarEnv(gym.Env):
             reward = reward_dist + reward_speed
 
         return reward
-
-
-env = CarEnv(client)
-
-for eps_i in range(NUM_EPISODES):
-
-    i = 0
-    done = False
-    logging.info(f"Episode {eps_i}")
-    env.reset()
-
-    while not done:
-        i += 1
-        # obtain state and image and relevant info to compute reward
-        action = np.random.randint(1, 6)
-        observation, reward, done, info = env.step(action)
-        scene = observation[:, :, :3].astype("uint8")
-        planner = observation[:, :, 3].astype("uint8")
-
-        # tranform and save images in temp enumerated by i
-        Image.fromarray(scene).save(os.path.normpath('./temp/scene_' + str(i) + '.png'))
-        Image.fromarray(planner.astype("uint8")).save(os.path.normpath('./temp/planner_' + str(i) + '.png'))
-        state = client.getCarState()
-        
-        # print state details
-        logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}, reward={reward}")
-
-   
