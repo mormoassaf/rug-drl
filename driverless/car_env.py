@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 import gym
 
-from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD
 
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -14,7 +14,8 @@ class CarEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=0, high=255, shape=(4*frame_rate, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
-        self.state = self._refresh_state()
+        self.state = None
+        self._refresh_state()
         self.observation_buffer = None
 
     def reset(self):
@@ -33,10 +34,12 @@ class CarEnv(gym.Env):
         # Check if done
         done = False
         if reward < -1:
-            done = self.time >= 20
-        if self.car_controls.brake == 0:
-            if state["car_state"].speed <= 4:
-                done = self.time >= 20
+            done = True
+        if state["speed_moving_avg"] <= MIN_SPEED:
+            done = self.time >= 10
+            if done:
+                reward = -10
+        print(f"time={self.time}, reward={reward}, speed={state['speed_moving_avg']}, action={action}, done={done}")
         self.time += 1
         
         return observation, reward, done, {}
@@ -49,10 +52,12 @@ class CarEnv(gym.Env):
         self.client.enableApiControl(False)
         self.client.armDisarm(False)
 
-    def _refresh_state(self):
+    def _refresh_state(self, speed_moving_avg_decay=0.1):
+        prev_state = self.state
         car_state = self.client.getCarState()
         state = {
             "car_state": car_state,
+            "speed_moving_avg": MIN_SPEED if prev_state is None else speed_moving_avg_decay * prev_state["speed_moving_avg"] + (1 - speed_moving_avg_decay) * car_state.speed,
         }
         self.state = state 
         return state
@@ -116,6 +121,7 @@ class CarEnv(gym.Env):
         else:
             reward_dist = (np.exp(-beta*dist) - 0.5)
             reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
-            reward = reward_dist + reward_speed
+            reward_speed = min(reward_speed, MAX_SPEED_REWARD)
+            reward = reward_speed + reward_dist
 
         return reward

@@ -1,5 +1,5 @@
-# ready to run example: PythonClient/multirotor/hello_drone.py
-from settings import NUM_EPISODES
+
+from settings import NUM_EPISODES, MODELS_DIR
 import airsim
 import os
 import numpy as np
@@ -33,25 +33,31 @@ model = A2C(
     policy_kwargs=dict(net_arch=[64, 64], activation_fn=th.nn.ReLU, ortho_init=False),
 )
 
-model.learn(total_timesteps=1000)
+TIMESTEPS = 1000
+iters = 0
+while True:
+    iters += 1
+    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False)
+    model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
+    logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
 
-for eps_i in range(NUM_EPISODES):
+# for eps_i in range(NUM_EPISODES):
 
-    i = 0
-    done = False
-    logging.info(f"Episode {eps_i}")
-    env.reset()
+#     i = 0
+#     done = False
+#     logging.info(f"Episode {eps_i}")
+#     env.reset()
 
-    while not done:
-        i += 1
-        # obtain state and image and relevant info to compute reward
-        action = np.random.randint(1, 6)
-        observation, reward, done, info = env.step(action)
-        scene = observation[:, :, :3].astype("uint8")
-        planner = observation[:, :, 3].astype("uint8")
+#     while not done:
+#         i += 1
+#         # obtain state and image and relevant info to compute reward
+#         action = np.random.randint(1, 6)
+#         observation, reward, done, info = env.step(action)
+#         scene = observation[:, :, :3].astype("uint8")
+#         planner = observation[:, :, 3].astype("uint8")
 
    
-        state = env.state["car_state"]
-        logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}, reward={reward}")
+#         state = env.state["car_state"]
+#         logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}, reward={reward}")
 
    

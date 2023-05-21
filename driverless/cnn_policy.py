@@ -77,6 +77,8 @@ class CustomPolicy(BasePolicy):
         return values, action_log_probs, dist_entropy
 
     def forward(self, obs, deterministic=False):
+        # assert no nan
+        assert not th.isnan(obs).any()
         features = self.extract_features(obs)
         action_logits = self.action_net(features)
         dist = Categorical(logits=action_logits)
