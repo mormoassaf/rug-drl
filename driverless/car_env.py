@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 import gym
 
-from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD
 
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -22,19 +22,17 @@ class CarEnv(gym.Env):
         self.client.reset()
         self.time = 0
         self.observation_buffer = None
-        return self._get_obvervation()
+        return self._get_obvervation()[0]
 
     def step(self, action):        
         state = self._refresh_state()
         a = self._interpret_action(action)
         self.client.setCarControls(a)
-        reward = self._compute_reward(self.state)
-        observation = self._get_obvervation()
+        observation, _, lider = self._get_obvervation()
+        reward = self._compute_reward(self.state, lider)
 
-        # Check if done
+        # Check if the car is stuck
         done = False
-        if reward < -1:
-            done = True
         if state["speed_moving_avg"] <= MIN_SPEED:
             done = self.time >= 10
             if done:
@@ -79,7 +77,7 @@ class CarEnv(gym.Env):
             self.observation_buffer = np.concatenate((self.observation_buffer[:, :, 4:], observation), axis=-1)
         observation = np.moveaxis(self.observation_buffer, -1, 0)
 
-        return observation
+        return observation, scene, planner
 
     def _interpret_action(self, action):
         self.car_controls.brake = 0
@@ -99,29 +97,17 @@ class CarEnv(gym.Env):
             self.car_controls.steering = -0.25
         return self.car_controls
 
-    def _compute_reward(self, state):
+    def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
+        avg_distance = np.average(lidar)
 
-        thresh_dist = 3.5
-        beta = 3
-
-        z = 0
-        pts = [np.array([0, -1, z]), np.array([130, -1, z]), np.array([130, 125, z]), np.array([0, 125, z]), np.array([0, -1, z]), np.array([130, -1, z]), np.array([130, -128, z]), np.array([0, -128, z]), np.array([0, -1, z])]
-        pd: airsim.Vector3r = car_state.kinematics_estimated.position
-        car_pt = np.array([pd.x_val, pd.y_val, pd.z_val])
-
-        dist = 10000000
-        for i in range(0, len(pts)-1):
-            dist = min(dist, np.linalg.norm(np.cross((car_pt - pts[i]), (car_pt - pts[i+1])))/np.linalg.norm(pts[i]-pts[i+1]))
-
-        #print(dist)
-        if dist > thresh_dist:
-            reward = -3
-        else:
-            reward_dist = (np.exp(-beta*dist) - 0.5)
-            reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
-            reward_speed = min(reward_speed, MAX_SPEED_REWARD)
-            reward = reward_speed + reward_dist
-
-        return reward
+        # ln(2) = 0.69314718056
+        reward_dist = np.exp((avg_distance * 0.69314718056) / CAUTON_PROXIMITY) - 2
+        reward_dist *= 3
+        reward_dist = min(reward_dist, MAX_DIST_REWARD)
+        reward_speed = (((car_state.speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
+        reward_speed = min(reward_speed, MAX_SPEED_REWARD)
+        reward = reward_speed + reward_dist
+        print("reward: ", reward, "speed: ", reward_speed, "dist: ", reward_dist)
+        return reward + 10
