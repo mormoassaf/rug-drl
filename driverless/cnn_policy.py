@@ -44,17 +44,6 @@ class CNNFeatureExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space, features_dim=512, *args, **kwargs):
         super(CNNFeatureExtractor, self).__init__(observation_space, features_dim)
-        # self.cnn = th.nn.Sequential(
-        #     th.nn.Conv2d(128, 32, kernel_size=8, stride=4),
-        #     th.nn.ReLU(),
-        #     th.nn.Conv2d(32, 64, kernel_size=4, stride=2),
-        #     th.nn.ReLU(),
-        #     th.nn.Conv2d(64, 64, kernel_size=3, stride=1),
-        #     th.nn.ReLU(),
-        #     th.nn.Flatten(),
-        #     th.nn.Linear(25088, features_dim),
-        #     th.nn.ReLU()
-        # )
         self.cnn = th.nn.Sequential(
             DQNConvBlock(128, 32, 8, 4),
             DQNConvBlock(32, 64, 4, 2),
