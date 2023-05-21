@@ -34,12 +34,8 @@ for eps_i in range(NUM_EPISODES):
         scene = observation[:, :, :3].astype("uint8")
         planner = observation[:, :, 3].astype("uint8")
 
-        # tranform and save images in temp enumerated by i
-        Image.fromarray(scene).save(os.path.normpath('./temp/scene_' + str(i) + '.png'))
-        Image.fromarray(planner.astype("uint8")).save(os.path.normpath('./temp/planner_' + str(i) + '.png'))
-        state = client.getCarState()
-        
-        # print state details
+   
+        state = env.state["car_state"]
         logging.info(f"speed={state.speed}, gear={state.gear}, collision={state.collision.has_collided}, timestamp={state.timestamp}, reward={reward}")
 
    

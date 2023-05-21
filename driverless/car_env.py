@@ -7,13 +7,15 @@ from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, client):
+    def __init__(self, client, frame_rate=32):
         self.client = client
+        self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(84, 84, 4), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(84, 84, 4*frame_rate), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = self._refresh_state()
+        self.observation_buffer = None
 
     def reset(self):
         self.client.reset()
@@ -64,6 +66,10 @@ class CarEnv(gym.Env):
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
         planner /= MAX_DEPTH / 255.0 
         observation = np.concatenate((scene, planner), axis=-1)
+        if self.observation_buffer is None:
+            self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
+        else:
+            self.observation_buffer = np.concatenate((self.observation_buffer[:, :, 4:], observation), axis=-1)
         return observation
 
     def _interpret_action(self, action):
