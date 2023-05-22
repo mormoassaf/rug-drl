@@ -54,14 +54,13 @@ class CarEnv(gym.Env):
         state = self._refresh_state()
         a = self._interpret_action(action)
         self.client.setCarControls(a)
+        
         observation, _, lider = self._get_obvervation()
         reward = self._compute_reward(self.state, lider)
-
-        # Check if the car is stuck
         done = False
-        if reward == -KILL_PENALTY:
-            done = True
-            print("Car is stuck")
+        done = reward == -KILL_PENALTY
+        if done:
+            print("\tcar stopped moving. killing episode")
         self.time += 1
         
         return observation, reward, done, {
@@ -143,7 +142,7 @@ class CarEnv(gym.Env):
         # check if car is looking upwards
         quaternionr = car_state.kinematics_estimated.orientation
         pitch, roll, yaw = airsim.to_eularian_angles(quaternionr)
-        if pitch > 0.01:
+        if pitch > 0.2:
             return -KILL_PENALTY
         
         # compute average distance of the closest 65% of the lidar points
