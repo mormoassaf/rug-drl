@@ -94,7 +94,6 @@ class CustomPolicy(BasePolicy):
 
     def _build(self, lr_schedule, net_arch, activation_fn, ortho_init):
         self.mlp_extractor = th.nn.Sequential(*create_mlp(self.features_dim, self.features_dim, net_arch, activation_fn))
-        self.mlp_extractor = th.nn.Sequential(*create_mlp(self.features_dim, self.features_dim, net_arch, activation_fn))
 
         action_net_layers = create_mlp(self.features_dim, self.action_space.n, net_arch, activation_fn)
         if ortho_init: 
@@ -128,7 +127,6 @@ class CustomPolicy(BasePolicy):
         return values, action_log_probs, dist_entropy
 
     def forward(self, obs, deterministic=False):
-        # assert no nan
         assert not th.isnan(obs).any()
         features = self.extract_features(obs)
         action_logits = self.action_net(features)

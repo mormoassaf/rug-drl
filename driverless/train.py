@@ -32,7 +32,7 @@ model = A2C(
     verbose=1, 
     device='cuda', 
     tensorboard_log="./tensorboard/",
-    policy_kwargs=dict(net_arch=[256, 256], activation_fn=th.nn.ReLU, ortho_init=False),
+    policy_kwargs=dict(net_arch=[256, 256], activation_fn=th.nn.ReLU, ortho_init=True),
     n_steps=16,
 )
 

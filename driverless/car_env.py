@@ -24,7 +24,7 @@ class CarEnv(gym.Env):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(CHANNELS_PER_FRAME*FRAME_RATE, 144, 256), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(CHANNELS_PER_FRAME*FRAME_RATE, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = None
@@ -114,12 +114,18 @@ class CarEnv(gym.Env):
         scene_img.save("./temp/2.png")
 
         observation = np.concatenate((scene, 255-planner), axis=-1)
+        observation = observation / 255
+
+        # add frame to buffer
         if self.observation_buffer is None:
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
         else:
             self.observation_buffer = np.concatenate((self.observation_buffer[:, :, CHANNELS_PER_FRAME:], observation), axis=-1)
+        
         observation = np.moveaxis(self.observation_buffer, -1, 0)
-
+        
+        observation = 2*observation - 1
+        assert observation.min() >= -1 and observation.max() <= 1
         return observation, scene, 255-planner
 
     def _interpret_action(self, action):
