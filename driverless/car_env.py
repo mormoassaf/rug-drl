@@ -2,8 +2,7 @@ import airsim
 import numpy as np
 import gym
 import PIL
-from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD, KILL_PENALTY, CHANNELS_PER_FRAME
-
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD, KILL_PENALTY, CHANNELS_PER_FRAME, FRAME_RATE
 
 # computes reward, if metric is above threshold, reward grows linearly, otherwise it decays exponentially
 def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
@@ -21,11 +20,11 @@ def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, client, frame_rate=32):
+    def __init__(self, client, frame_rate=FRAME_RATE):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(CHANNELS_PER_FRAME*frame_rate, 144, 256), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(CHANNELS_PER_FRAME*FRAME_RATE, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = None

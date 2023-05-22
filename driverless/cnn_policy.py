@@ -8,6 +8,8 @@ from torch.distributions import Categorical
 from stable_baselines3.common.policies import BasePolicy, ActorCriticPolicy
 from torch import Tensor
 from stable_baselines3.common.utils import constant_fn
+import torch.nn.init as init
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from torch import nn
 import gym
@@ -92,8 +94,21 @@ class CustomPolicy(BasePolicy):
 
     def _build(self, lr_schedule, net_arch, activation_fn, ortho_init):
         self.mlp_extractor = th.nn.Sequential(*create_mlp(self.features_dim, self.features_dim, net_arch, activation_fn))
-        self.action_net = th.nn.Sequential(*create_mlp(self.features_dim, self.action_space.n, net_arch, activation_fn))
-        self.value_net = th.nn.Sequential(*create_mlp(self.features_dim, 1, net_arch, activation_fn))
+        self.mlp_extractor = th.nn.Sequential(*create_mlp(self.features_dim, self.features_dim, net_arch, activation_fn))
+
+        action_net_layers = create_mlp(self.features_dim, self.action_space.n, net_arch, activation_fn)
+        if ortho_init: 
+            for layer in action_net_layers:
+                if isinstance(layer, th.nn.Linear):
+                    init.orthogonal_(layer.weight)
+        self.action_net = th.nn.Sequential(*action_net_layers)
+
+        value_net_layers = create_mlp(self.features_dim, 1, net_arch, activation_fn)
+        if ortho_init: 
+            for layer in value_net_layers:
+                if isinstance(layer, th.nn.Linear):
+                    init.orthogonal_(layer.weight)
+        self.value_net = th.nn.Sequential(*value_net_layers)
 
     def _predict(self, observation, deterministic=False):
         return super()._predict(observation, deterministic)
