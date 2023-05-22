@@ -24,7 +24,7 @@ class CarEnv(gym.Env):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=-1, high=1, shape=(CHANNELS_PER_FRAME*FRAME_RATE, 144, 256), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=(CHANNELS_PER_FRAME*FRAME_RATE, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = None
@@ -104,7 +104,7 @@ class CarEnv(gym.Env):
         self.state = state 
         return state
 
-    def _get_obvervation(self):
+    def _get_obvervation(self, forget_rate=0.0):
         res_depth_plannar, res_scene = self.client.simGetImages([
             airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True),
             airsim.ImageRequest("2", airsim.ImageType.Scene, False, False),
@@ -112,13 +112,10 @@ class CarEnv(gym.Env):
 
         scene = np.frombuffer(res_scene.image_data_uint8, dtype=np.uint8)
         scene = scene.reshape(res_scene.height, res_scene.width, 3).astype(np.float32)
-        scene = np.dot(scene, np.array([0.2989, 0.5870, 0.1140]))
-        scene = scene.reshape(res_scene.height, res_scene.width, 1)
         assert scene.min() >= 0 and scene.max() <= 255
         
         planner = np.array(res_depth_plannar.image_data_float, dtype=np.float32)
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
-        # clip depth values
         planner = np.clip(planner, 0, MAX_DEPTH) / MAX_DEPTH
         planner = 1 - planner
         planner *= 255
@@ -126,22 +123,28 @@ class CarEnv(gym.Env):
 
         planner_img = PIL.Image.fromarray(planner.reshape(res_depth_plannar.height, res_depth_plannar.width).astype(np.uint8))
         planner_img.save("./temp/1.png")
-        scene_img = PIL.Image.fromarray(scene.reshape(res_scene.height, res_scene.width).astype(np.uint8))
+        scene_img = PIL.Image.fromarray(scene.reshape(res_scene.height, res_scene.width, 3).astype(np.uint8))
         scene_img.save("./temp/2.png")
 
-        observation = np.concatenate((scene, planner), axis=-1)
-        observation = observation / 255
-        observation = 2*observation - 1
+        scene /= 255
+        planner /= 255
+
+        observation = scene * planner
         
         # add frame to buffer
         if self.observation_buffer is None:
-            self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
+            buffer = []
+            for _ in range(FRAME_RATE):
+                buffer.append(observation)
+                observation -= observation * forget_rate
+            self.observation_buffer = np.concatenate(buffer, axis=-1)
         else:
-            self.observation_buffer = np.concatenate((self.observation_buffer[:, :, CHANNELS_PER_FRAME:], observation), axis=-1)
+            self.observation_buffer -= self.observation_buffer * forget_rate
+            self.observation_buffer = np.concatenate((observation, self.observation_buffer[:, :, CHANNELS_PER_FRAME:]), axis=-1)
         
         observation = np.moveaxis(self.observation_buffer, -1, 0)
         
-        assert observation.min() >= -1 and observation.max() <= 1
+        assert observation.min() >= 0 and observation.max() <= 1
         
         return observation, scene, 255-planner
 

@@ -9,7 +9,7 @@ from car_env import CarEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
-from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor
+from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor, SemanticSegFormerFeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from monitoring import init_callback, init_experiment
 
@@ -52,12 +52,12 @@ if pretrained_model and os.path.exists(pretrained_model):
     logging.info(f"Loaded model from {pretrained_model}")
 
 
-init_experiment({
-    "model": "PPO",
-    "env": "CarEnv",
-    "timesteps": TIMESTEPS,
-    "n_steps": 16,  
-})
+# init_experiment({
+#     "model": "PPO",
+#     "env": "CarEnv",
+#     "timesteps": TIMESTEPS,
+#     "n_steps": 16,  
+# })
 
 iters = 0
 while True:
@@ -66,7 +66,7 @@ while True:
         total_timesteps=TIMESTEPS, 
         reset_num_timesteps=True, 
         log_interval=50, 
-        callback=init_callback(),
+        # callback=init_callback(),
     )
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
