@@ -31,6 +31,16 @@ class CarEnv(gym.Env):
         self._refresh_state()
         self.observation_buffer = None
         self.reward_time_scaler = reward_time_scaler
+        self.action_counts = np.array([0] * 6)
+        self.action_dist = np.array([
+            1, # 0: brake
+            3, # 1: steering 0
+            3, # 2: steer left hard
+            3, # 3: steer right hard
+            5, # 4: steer left soft
+            5, # 5: steer right soft
+        ])
+        self.action_dist = self.action_dist / self.action_dist.sum()
 
     def reset(self):
         self.client.reset()
@@ -52,6 +62,9 @@ class CarEnv(gym.Env):
 
     def step(self, action):        
         state = self._refresh_state()
+        self.action_counts[action] += 1
+        if self.time % 10 == 0:
+            self.action_counts -= self.action_counts.min()-1
         a = self._interpret_action(action)
         self.client.setCarControls(a)
         
@@ -182,6 +195,14 @@ class CarEnv(gym.Env):
             reward = min(reward_dist, reward_speed)
         else:
             reward = reward_speed + reward_dist + self.time * self.reward_time_scaler
+            # Penalize unbalanced action distributions
+            # action_counts_dist = self.action_counts / self.action_counts.sum()
+            # value_closeness = np.abs(action_counts_dist - self.action_dist)
+            # if value_closeness.sum() > 1:
+            #     reward -= 15
+            #     print(f"\t agent is not exploring enough dif= {value_closeness.sum()}")
+            # else:
+            #     reward += 0.1
 
         print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
         print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))

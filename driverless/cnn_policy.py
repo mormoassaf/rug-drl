@@ -69,3 +69,32 @@ class CNNFeatureExtractor(BaseFeaturesExtractor):
         responses = self.cnn(observations)
         return self.fc(responses)
     
+class ResNetFeatureExtractor(BaseFeaturesExtractor):
+
+    def __init__(self, observation_space: gym.Space, features_dim: int = 0) -> None:
+        super().__init__(observation_space, features_dim)
+        # translate observation space to image
+        self.cnn = th.nn.Sequential(
+            DQNConvBlock(observation_space.shape[0], observation_space.shape[0] // 2, 3, 1),
+            DQNConvBlock(observation_space.shape[0] // 2, observation_space.shape[0] // 4, 4, 1),
+            DQNConvBlock(observation_space.shape[0] // 4, 3, 3, 2),
+        )
+        # pretrained resenet50
+        self.resnet = th.hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True)
+        self.resnet.fc = nn.Identity()
+        for param in self.resnet.parameters():
+            param.requires_grad = False
+        # add a new layer that outputs features_dim
+        self.fc = nn.Sequential(
+            nn.Linear(2048, features_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, observations: Tensor, **kwargs) -> Tensor:
+        # translate observation space to image
+        responses = self.cnn(observations)
+        # translate image to features
+        responses = self.resnet(responses)
+        # translate features to features_dim
+        responses = self.fc(responses)
+        return responses            

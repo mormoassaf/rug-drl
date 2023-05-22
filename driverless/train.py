@@ -9,7 +9,7 @@ from car_env import CarEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
-from cnn_policy import CNNFeatureExtractor
+from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from monitoring import init_callback, init_experiment
 
@@ -29,20 +29,21 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = PPO(
+model = A2C(
     policy=ActorCriticCnnPolicy,
     policy_kwargs={
         "net_arch": [256, 256],
         "activation_fn": th.nn.ReLU,
         "ortho_init": True,
         "normalize_images": False,
-        "features_extractor_class": CNNFeatureExtractor,
-        "features_extractor_kwargs": dict(features_dim=1536),
+        "features_extractor_class": ResNetFeatureExtractor,
+        "features_extractor_kwargs": dict(features_dim=768),
     },
     env=env, 
     verbose=1, 
     device='cuda', 
     n_steps=16,
+    ent_coef=0.1,
 )
 
 # load pretrained model
