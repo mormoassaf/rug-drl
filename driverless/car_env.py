@@ -20,7 +20,7 @@ def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, client, frame_rate=FRAME_RATE):
+    def __init__(self, client, frame_rate=FRAME_RATE, reward_time_scaler=0.1):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
@@ -30,6 +30,7 @@ class CarEnv(gym.Env):
         self.state = None
         self._refresh_state()
         self.observation_buffer = None
+        self.reward_time_scaler = reward_time_scaler
 
     def reset(self):
         self.client.reset()
@@ -100,6 +101,7 @@ class CarEnv(gym.Env):
         scene = scene.reshape(res_scene.height, res_scene.width, 3).astype(np.float32)
         scene = np.dot(scene, np.array([0.2989, 0.5870, 0.1140]))
         scene = scene.reshape(res_scene.height, res_scene.width, 1)
+        assert scene.min() >= 0 and scene.max() <= 255
         
         planner = np.array(res_depth_plannar.image_data_float, dtype=np.float32)
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
@@ -107,15 +109,17 @@ class CarEnv(gym.Env):
         planner = np.clip(planner, 0, MAX_DEPTH) / MAX_DEPTH
         planner = 1 - planner
         planner *= 255
+        assert planner.min() >= 0 and planner.max() <= 255
 
         planner_img = PIL.Image.fromarray(planner.reshape(res_depth_plannar.height, res_depth_plannar.width).astype(np.uint8))
         planner_img.save("./temp/1.png")
         scene_img = PIL.Image.fromarray(scene.reshape(res_scene.height, res_scene.width).astype(np.uint8))
         scene_img.save("./temp/2.png")
 
-        observation = np.concatenate((scene, 255-planner), axis=-1)
+        observation = np.concatenate((scene, planner), axis=-1)
         observation = observation / 255
-
+        observation = 2*observation - 1
+        
         # add frame to buffer
         if self.observation_buffer is None:
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
@@ -124,8 +128,8 @@ class CarEnv(gym.Env):
         
         observation = np.moveaxis(self.observation_buffer, -1, 0)
         
-        observation = 2*observation - 1
         assert observation.min() >= -1 and observation.max() <= 1
+        
         return observation, scene, 255-planner
 
     def _interpret_action(self, action):
@@ -177,7 +181,7 @@ class CarEnv(gym.Env):
         elif reward_dist < 0 or reward_speed < 0:
             reward = min(reward_dist, reward_speed)
         else:
-            reward = reward_speed + reward_dist
+            reward = reward_speed + reward_dist + self.time * self.reward_time_scaler
 
         print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
         print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))

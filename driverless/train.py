@@ -11,7 +11,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
 from cnn_policy import CNNFeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
-from monitoring import callback, init_experiment
+from monitoring import init_callback, init_experiment
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
@@ -65,7 +65,7 @@ while True:
         total_timesteps=TIMESTEPS, 
         reset_num_timesteps=True, 
         log_interval=50, 
-        callback=callback(),
+        callback=init_callback(),
     )
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")

@@ -41,6 +41,6 @@ def log(data):
     wandb.log(data)
 
 
-callback = lambda: WandbCallback(
+init_callback = lambda: WandbCallback(
     verbose=1,
 )
