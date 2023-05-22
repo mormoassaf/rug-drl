@@ -45,7 +45,7 @@ TIMESTEPS = 1000
 iters = 0
 while True:
     iters += 1
-    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, log_interval=50)
+    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=True, log_interval=50)
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
 

@@ -43,11 +43,10 @@ class CarEnv(gym.Env):
         actions = self._interpret_action(1)
         for _ in range(10):
             self.client.setCarControls(actions)
-        # perform 10 random actions
-        for _ in range(10):
-            self.step(self.action_space.sample())
         self.time = 0
         self.observation_buffer = None
+        self.state = self._refresh_state()
+
         return self._get_obvervation()[0]
 
     def step(self, action):        
@@ -138,7 +137,10 @@ class CarEnv(gym.Env):
     def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
-
+        if self.time <= 10 and car_state.speed < MIN_SPEED:
+            print("waiting for car to move")
+            return 0
+        
         # check if car is looking upwards
         quaternionr = car_state.kinematics_estimated.orientation
         pitch, roll, yaw = airsim.to_eularian_angles(quaternionr)
@@ -158,7 +160,7 @@ class CarEnv(gym.Env):
         reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1) 
 
         # if car is stuck, return -KILL_PENALTY, if any 
-        if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
+        if state["speed_moving_avg"] < MIN_SPEED:
             reward = -KILL_PENALTY
         elif reward_dist < 0 or reward_speed < 0:
             reward = min(reward_dist, reward_speed)
