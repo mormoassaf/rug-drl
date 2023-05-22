@@ -1,8 +1,9 @@
 import airsim
 import numpy as np
 import gym
+import PIL
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD, KILL_PENALTY, CHANNELS_PER_FRAME
 
-from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD, KILL_PENALTY
 
 # computes reward, if metric is above threshold, reward grows linearly, otherwise it decays exponentially
 def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
@@ -24,7 +25,7 @@ class CarEnv(gym.Env):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(4*frame_rate, 144, 256), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(CHANNELS_PER_FRAME*frame_rate, 144, 256), dtype=np.float32)
         self.car_controls = airsim.CarControls()
         self.time = 0
         self.state = None
@@ -95,8 +96,12 @@ class CarEnv(gym.Env):
             airsim.ImageRequest("1", airsim.ImageType.DepthPlanar, True),
             airsim.ImageRequest("2", airsim.ImageType.Scene, False, False),
         ])
+
         scene = np.frombuffer(res_scene.image_data_uint8, dtype=np.uint8)
         scene = scene.reshape(res_scene.height, res_scene.width, 3).astype(np.float32)
+        scene = np.dot(scene, np.array([0.2989, 0.5870, 0.1140]))
+        scene = scene.reshape(res_scene.height, res_scene.width, 1)
+        
         planner = np.array(res_depth_plannar.image_data_float, dtype=np.float32)
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
         # clip depth values
@@ -104,14 +109,16 @@ class CarEnv(gym.Env):
         planner = 1 - planner
         planner *= 255
 
-        import PIL
         planner_img = PIL.Image.fromarray(planner.reshape(res_depth_plannar.height, res_depth_plannar.width).astype(np.uint8))
         planner_img.save("./temp/1.png")
+        scene_img = PIL.Image.fromarray(scene.reshape(res_scene.height, res_scene.width).astype(np.uint8))
+        scene_img.save("./temp/2.png")
+
         observation = np.concatenate((scene, 255-planner), axis=-1)
         if self.observation_buffer is None:
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
         else:
-            self.observation_buffer = np.concatenate((self.observation_buffer[:, :, 4:], observation), axis=-1)
+            self.observation_buffer = np.concatenate((self.observation_buffer[:, :, CHANNELS_PER_FRAME:], observation), axis=-1)
         observation = np.moveaxis(self.observation_buffer, -1, 0)
 
         return observation, scene, 255-planner

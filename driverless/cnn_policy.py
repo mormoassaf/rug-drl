@@ -10,6 +10,8 @@ from torch import Tensor
 from stable_baselines3.common.utils import constant_fn
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from torch import nn
+import gym
+
 
 class DQNConvBlock(th.nn.Module):
 
@@ -45,17 +47,26 @@ class CNNFeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim=512, *args, **kwargs):
         super(CNNFeatureExtractor, self).__init__(observation_space, features_dim)
         self.cnn = th.nn.Sequential(
-            DQNConvBlock(128, 32, 8, 4),
+            DQNConvBlock(observation_space.shape[0], 32, 8, 4),
             DQNConvBlock(32, 64, 4, 2),
             DQNConvBlock(64, 64, 3, 1),
             DQNConvBlock(64, 64, 3, 1),
-            th.nn.Flatten(),
-            th.nn.Linear(19968, features_dim),
-            th.nn.ReLU()
         )
+        lin_size = self._compute_linear_input_size(observation_space)
+        self.fc = th.nn.Sequential(
+            th.nn.Flatten(),
+            th.nn.Linear(lin_size, features_dim),
+            th.nn.ReLU(),
+        )
+
+    def _compute_linear_input_size(self, observation_space: gym.spaces.Box) -> int:
+        dummy = th.zeros(observation_space.shape).unsqueeze(0)
+        dummy = self.cnn(dummy)
+        return dummy.view(dummy.size(0), -1).size(1)
     
     def forward(self, observations: Tensor) -> Tensor:
-        return self.cnn(observations)
+        responses = self.cnn(observations)
+        return self.fc(responses)
     
     
 # policy that accepts 128-channel input
