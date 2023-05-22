@@ -33,12 +33,16 @@ class CarEnv(gym.Env):
 
     def reset(self):
         self.client.reset()
+        # place car at random location
+        xs = np.random.randint(-10, 10)
+        ys = np.random.randint(-10, 10)
+        self.client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(xs, 1, -1), airsim.to_quaternion(0, 0, 0)), True)
         # move car forward
         actions = self._interpret_action(1)
         for _ in range(10):
             self.client.setCarControls(actions)
-        # perform 5 random actions
-        for _ in range(5):
+        # perform 10 random actions
+        for _ in range(10):
             self.step(self.action_space.sample())
         self.time = 0
         self.observation_buffer = None
@@ -53,12 +57,20 @@ class CarEnv(gym.Env):
 
         # Check if the car is stuck
         done = False
-        if reward == -10:
+        if reward == -50:
             done = True
             print("Car is stuck")
         self.time += 1
         
-        return observation, reward, done, {}
+        return observation, reward, done, {
+            "time": self.time,
+            "speed": state["car_state"].speed,
+            "speed_moving_avg": state["speed_moving_avg"],
+            "throttle": a.throttle,
+            "steering": a.steering,
+            "brake": a.brake,
+            "reward": reward,
+        }
 
     def render(self):
         pass
@@ -124,6 +136,11 @@ class CarEnv(gym.Env):
     def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
+        # check if car is looking upwards
+        quaternionr = car_state.kinematics_estimated.orientation
+        pitch, roll, yaw = airsim.to_eularian_angles(quaternionr)
+        if pitch > 0.01:
+            return -50
         # avg_distance = np.average(lidar)
         # top smallest k since small obstacles are enough to crash
         # k = 25% of all points
@@ -134,16 +151,16 @@ class CarEnv(gym.Env):
         caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
         reward_dist = metric2reward(avg_distance * 10, caution_prox * 10, MAX_DIST_REWARD, min_reward=-8)
-        reward_speed = metric2reward(state["speed_moving_avg"], MIN_SPEED, MAX_SPEED_REWARD, min_reward=0) 
+        reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1) 
     
-        print("avg_distance: ", avg_distance, "caution_dist: ", caution_prox, ) 
+        print("avg_distance: ", avg_distance, "caution_dist: ", caution_prox, "pitch", pitch) 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
-            return -10
+            return -50
         if reward_dist < 0:
             reward = reward_dist
         elif reward_speed < 0:
             reward = reward_speed
         reward = reward_speed + reward_dist
         print("\treward: ", reward,  "reward_dist: ", reward_dist)
-        return reward
+        return reward + self.time * 0.1
     

@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import logging
 from car_env import CarEnv
-from stable_baselines3 import A2C
+from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
 from cnn_policy import CustomPolicy
@@ -26,14 +26,15 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = A2C(
+model = PPO(
     CustomPolicy, 
     env, 
     verbose=1, 
     device='cuda', 
     tensorboard_log="./tensorboard/",
     policy_kwargs=dict(net_arch=[256, 256], activation_fn=th.nn.ReLU, ortho_init=False),
-    n_steps=16
+    n_steps=16,
+    batch_size=64,
 )
 
 # load pretrained model
@@ -45,7 +46,7 @@ TIMESTEPS = 1000
 iters = 0
 while True:
     iters += 1
-    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, )
+    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, log_interval=50)
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
 
