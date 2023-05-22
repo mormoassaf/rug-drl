@@ -11,9 +11,11 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
 from cnn_policy import CNNFeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
+from monitoring import callback, init_experiment
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
+TIMESTEPS = 1000
 
 # connect to the AirSim simulator
 client = airsim.CarClient()
@@ -27,7 +29,7 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = A2C(
+model = PPO(
     policy=ActorCriticCnnPolicy,
     policy_kwargs={
         "net_arch": [256, 256],
@@ -35,12 +37,11 @@ model = A2C(
         "ortho_init": True,
         "normalize_images": False,
         "features_extractor_class": CNNFeatureExtractor,
-        "features_extractor_kwargs": dict(features_dim=512),
+        "features_extractor_kwargs": dict(features_dim=1536),
     },
     env=env, 
     verbose=1, 
     device='cuda', 
-    tensorboard_log="./tensorboard/",
     n_steps=16,
 )
 
@@ -49,11 +50,23 @@ if pretrained_model and os.path.exists(pretrained_model):
     model = A2C.load(pretrained_model, env=env, device='cuda')
     logging.info(f"Loaded model from {pretrained_model}")
 
-TIMESTEPS = 1000
+
+init_experiment({
+    "model": "PPO",
+    "env": "CarEnv",
+    "timesteps": TIMESTEPS,
+    "n_steps": 16,  
+})
+
 iters = 0
 while True:
     iters += 1
-    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=True, log_interval=50)
+    model.learn(
+        total_timesteps=TIMESTEPS, 
+        reset_num_timesteps=True, 
+        log_interval=50, 
+        callback=callback(),
+    )
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
 

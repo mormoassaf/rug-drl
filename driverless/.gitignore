@@ -1,3 +1,5 @@
 temp
 tensorboard
 models
+wandb
+artifacts
