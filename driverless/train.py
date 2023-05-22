@@ -9,7 +9,8 @@ from car_env import CarEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
-from cnn_policy import CustomPolicy
+from cnn_policy import CNNFeatureExtractor
+from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
@@ -27,12 +28,19 @@ pretrained_model = None
 
 # create custom model and learn using conv
 model = A2C(
-    CustomPolicy, 
-    env, 
+    policy=ActorCriticCnnPolicy,
+    policy_kwargs={
+        "net_arch": [256, 256],
+        "activation_fn": th.nn.ReLU,
+        "ortho_init": True,
+        "normalize_images": False,
+        "features_extractor_class": CNNFeatureExtractor,
+        "features_extractor_kwargs": dict(features_dim=512),
+    },
+    env=env, 
     verbose=1, 
     device='cuda', 
     tensorboard_log="./tensorboard/",
-    policy_kwargs=dict(net_arch=[256, 256], activation_fn=th.nn.ReLU, ortho_init=True),
     n_steps=16,
 )
 
