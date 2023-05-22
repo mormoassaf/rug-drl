@@ -77,7 +77,7 @@ class ResNetFeatureExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space: gym.Space, features_dim: int = 0) -> None:
         super().__init__(observation_space, features_dim)
-        self.n_frames = 4
+        self.n_frames = 16
 
         # pretrained resenet50
         self.resnet = th.hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True)
