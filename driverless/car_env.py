@@ -2,7 +2,7 @@ import airsim
 import numpy as np
 import gym
 
-from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD
+from settings import MAX_DEPTH, MAX_SPEED, MIN_SPEED, MAX_SPEED_REWARD, CAUTON_PROXIMITY, MAX_DIST_REWARD, KILL_PENALTY
 
 # computes reward, if metric is above threshold, reward grows linearly, otherwise it decays exponentially
 def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
@@ -36,7 +36,9 @@ class CarEnv(gym.Env):
         # place car at random location
         xs = np.random.randint(-10, 10)
         ys = np.random.randint(-10, 10)
-        self.client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(xs, 1, -1), airsim.to_quaternion(0, 0, 0)), True)
+        # rotate the car quaternion to face random directions
+        dirs = np.random.randint(0, 360)
+        self.client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(xs, 1, -1), airsim.to_quaternion(0, 0, dirs)), True)
         # move car forward
         actions = self._interpret_action(1)
         for _ in range(10):
@@ -57,7 +59,7 @@ class CarEnv(gym.Env):
 
         # Check if the car is stuck
         done = False
-        if reward == -50:
+        if reward == -KILL_PENALTY:
             done = True
             print("Car is stuck")
         self.time += 1
@@ -101,19 +103,20 @@ class CarEnv(gym.Env):
         planner = planner.reshape(res_depth_plannar.height, res_depth_plannar.width, 1)
         # clip depth values
         planner = np.clip(planner, 0, MAX_DEPTH) / MAX_DEPTH
+        planner = 1 - planner
         planner *= 255
-        planner = np.clip(planner, 0, 255)
+
         import PIL
         planner_img = PIL.Image.fromarray(planner.reshape(res_depth_plannar.height, res_depth_plannar.width).astype(np.uint8))
         planner_img.save("./temp/1.png")
-        observation = np.concatenate((scene, planner), axis=-1)
+        observation = np.concatenate((scene, 255-planner), axis=-1)
         if self.observation_buffer is None:
             self.observation_buffer = np.repeat(observation, self.frame_rate, axis=-1)
         else:
             self.observation_buffer = np.concatenate((self.observation_buffer[:, :, 4:], observation), axis=-1)
         observation = np.moveaxis(self.observation_buffer, -1, 0)
 
-        return observation, scene, planner
+        return observation, scene, 255-planner
 
     def _interpret_action(self, action):
         self.car_controls.brake = 0
@@ -140,27 +143,26 @@ class CarEnv(gym.Env):
         quaternionr = car_state.kinematics_estimated.orientation
         pitch, roll, yaw = airsim.to_eularian_angles(quaternionr)
         if pitch > 0.01:
-            return -50
-        # avg_distance = np.average(lidar)
-        # top smallest k since small obstacles are enough to crash
-        # k = 25% of all points
+            return -KILL_PENALTY
         k = int(0.65 * lidar.size)
         avg_distance = np.average(np.sort(lidar.flatten())[:k])
+
         # compute caution distance by interpolating between min_speed and max_speed
         alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
         caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
-        reward_dist = metric2reward(avg_distance * 10, caution_prox * 10, MAX_DIST_REWARD, min_reward=-8)
+        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-4)
         reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1) 
-    
-        print("avg_distance: ", avg_distance, "caution_dist: ", caution_prox, "pitch", pitch) 
+
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
-            return -50
-        if reward_dist < 0:
+            reward = -KILL_PENALTY
+        elif reward_dist < 0:
             reward = reward_dist
         elif reward_speed < 0:
             reward = reward_speed
         reward = reward_speed + reward_dist
-        print("\treward: ", reward,  "reward_dist: ", reward_dist)
+
+        print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
+        print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))
         return reward + self.time * 0.1
     

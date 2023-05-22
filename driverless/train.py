@@ -26,7 +26,7 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = PPO(
+model = A2C(
     CustomPolicy, 
     env, 
     verbose=1, 
@@ -34,7 +34,6 @@ model = PPO(
     tensorboard_log="./tensorboard/",
     policy_kwargs=dict(net_arch=[256, 256], activation_fn=th.nn.ReLU, ortho_init=False),
     n_steps=16,
-    batch_size=64,
 )
 
 # load pretrained model
