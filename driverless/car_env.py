@@ -139,11 +139,14 @@ class CarEnv(gym.Env):
     def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
+
         # check if car is looking upwards
         quaternionr = car_state.kinematics_estimated.orientation
         pitch, roll, yaw = airsim.to_eularian_angles(quaternionr)
         if pitch > 0.01:
             return -KILL_PENALTY
+        
+        # compute average distance of the closest 65% of the lidar points
         k = int(0.65 * lidar.size)
         avg_distance = np.average(np.sort(lidar.flatten())[:k])
 
@@ -151,16 +154,17 @@ class CarEnv(gym.Env):
         alpha = (car_state.speed / (MAX_SPEED - MIN_SPEED))
         caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
+        # compute reward
         reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-4)
         reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1) 
 
+        # if car is stuck, return -KILL_PENALTY, if any 
         if state["speed_moving_avg"] < MIN_SPEED and self.time > 10:
             reward = -KILL_PENALTY
-        elif reward_dist < 0:
-            reward = reward_dist
-        elif reward_speed < 0:
-            reward = reward_speed
-        reward = reward_speed + reward_dist
+        elif reward_dist < 0 or reward_speed < 0:
+            reward = min(reward_dist, reward_speed)
+        else:
+            reward = reward_speed + reward_dist
 
         print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
         print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))
