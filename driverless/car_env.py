@@ -168,5 +168,6 @@ class CarEnv(gym.Env):
 
         print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
         print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))
-        return reward + self.time * 0.1
+        
+        return reward
     
