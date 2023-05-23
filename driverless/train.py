@@ -9,13 +9,13 @@ from car_env import CarEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
-from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor, SemanticSegFormerFeatureExtractor
+from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor, SemanticSegFormerFeatureExtractor, LightCNNFeatureExtractor, MobileNetV2FeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 from monitoring import init_callback, init_experiment
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
-TIMESTEPS = 100
+TIMESTEPS = 1000
 
 # connect to the AirSim simulator
 client = airsim.CarClient()
@@ -29,21 +29,20 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = PPO(
+model = A2C(
     policy=ActorCriticCnnPolicy,
     policy_kwargs={
-        "net_arch": [256, 256],
+        "net_arch": [16, 16],
         "activation_fn": th.nn.ReLU,
         "ortho_init": True,
         "normalize_images": False,
-        "features_extractor_class": ResNetFeatureExtractor,
-        "features_extractor_kwargs": dict(features_dim=256),
+        "features_extractor_class": LightCNNFeatureExtractor,
+        "features_extractor_kwargs": dict(features_dim=64),
     },
     env=env, 
     verbose=1, 
     device='cuda', 
     ent_coef=0.01,
-    batch_size=128,
 )
 
 # load pretrained model

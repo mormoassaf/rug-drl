@@ -9,7 +9,7 @@ from torch import Tensor
 from stable_baselines3.common.utils import constant_fn
 import torch.nn.init as init
 import PIL
-
+from settings import FRAME_RATE
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from torch import nn
 import gym
@@ -73,6 +73,35 @@ class CNNFeatureExtractor(BaseFeaturesExtractor):
         responses = self.cnn(observations)
         return self.fc(responses)
     
+class LightCNNFeatureExtractor(BaseFeaturesExtractor):
+    """
+    CNN policy that accepts 128-channel input.
+    """
+
+    def __init__(self, observation_space, features_dim=512, *args, **kwargs):
+        super(LightCNNFeatureExtractor, self).__init__(observation_space, features_dim)
+        self.cnn = th.nn.Sequential(
+            nn.MaxPool2d(2, 2),
+            DQNConvBlock(observation_space.shape[0], 16, 3, 2),
+            nn.MaxPool2d(4),
+            DQNConvBlock(16, 8, 4, 2),
+        )
+        lin_size = self._compute_linear_input_size(observation_space)
+        self.fc = th.nn.Sequential(
+            th.nn.Flatten(),
+            th.nn.Linear(lin_size, features_dim),
+            th.nn.ReLU(),
+        )
+
+    def _compute_linear_input_size(self, observation_space: gym.spaces.Box) -> int:
+        dummy = th.zeros(observation_space.shape).unsqueeze(0)
+        dummy = self.cnn(dummy)
+        return dummy.view(dummy.size(0), -1).size(1)
+    
+    def forward(self, observations: Tensor, **kwargs) -> Tensor:
+        responses = self.cnn(observations)
+        return self.fc(responses)
+    
 class ResNetFeatureExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space: gym.Space, features_dim: int = 0) -> None:
@@ -91,7 +120,7 @@ class ResNetFeatureExtractor(BaseFeaturesExtractor):
             param.requires_grad = True
         for param in self.resnet.fc.parameters():
             param.requires_grad = True
-            
+
         # add a new layer that outputs features_dim
         self.fc = nn.Sequential(
             nn.Linear(2048, features_dim),
@@ -174,3 +203,49 @@ class SemanticSegFormerFeatureExtractor(BaseFeaturesExtractor):
             im.save('obs.png')
 
             return responses
+class MobileNetV2FeatureExtractor(BaseFeaturesExtractor):
+    """
+    CNN policy that accepts 128-channel input.
+    """
+
+    def __init__(self, observation_space, features_dim=512, num_heads=8, *args, **kwargs):
+        super(MobileNetV2FeatureExtractor, self).__init__(observation_space, features_dim)
+        self.n_frames = FRAME_RATE
+
+        # load mobilenetv2
+        self.mobilenet = th.hub.load('pytorch/vision:v0.6.0', 'mobilenet_v2', pretrained=True)
+        self.mobilenet.classifier = nn.Identity()
+        for param in self.mobilenet.parameters():
+            param.requires_grad = False
+        # make last couple layers trainable
+        for param in self.mobilenet.features[-1].parameters():
+            param.requires_grad = True
+        for param in self.mobilenet.features[-2].parameters():
+            param.requires_grad = True
+        for param in self.mobilenet.features[-3].parameters():
+            param.requires_grad = True
+            
+        # add a new layer that outputs features_dim
+        self.mobilenet_out = nn.Sequential(
+            nn.Linear(1280, features_dim),
+            nn.ReLU(),
+        )
+        self.mha = nn.MultiheadAttention(features_dim*self.n_frames, num_heads=num_heads)
+        self.out = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(features_dim * self.n_frames, features_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, observations: Tensor, **kwargs) -> Tensor:
+        frames = []
+        for i in range(self.n_frames):
+            start = i * 3
+            end = start + 3
+            features = self.mobilenet(observations[:, start:end, :, :])
+            features = self.mobilenet_out(features)
+            frames.append(features)
+        responses = th.cat(frames, dim=1)
+        responses = self.mha(responses, responses, responses)
+        responses = self.out(responses[0])
+        return responses

@@ -169,9 +169,7 @@ class CarEnv(gym.Env):
     def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
-        if self.time <= 5 and car_state.speed < MIN_SPEED:
-            print("waiting for car to move")
-            return 0
+
         
         # check if car is looking upwards
         quaternionr = car_state.kinematics_estimated.orientation
@@ -188,8 +186,19 @@ class CarEnv(gym.Env):
         caution_prox = (1 - alpha) * CAUTON_PROXIMITY + alpha * (CAUTON_PROXIMITY * 2)
 
         # compute reward
-        reward_dist = metric2reward(avg_distance, caution_prox, MAX_DIST_REWARD, min_reward=-4)
-        reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1) 
+        reward_dist = metric2reward(avg_distance/10, caution_prox/10, MAX_DIST_REWARD, min_reward=-4)
+        reward_speed = metric2reward(car_state.speed, MIN_SPEED, MAX_SPEED_REWARD, min_reward=-1)
+        # Penalize unbalanced action distributions
+        action_counts_dist = self.action_counts / self.action_counts.sum()
+        value_closeness = np.abs(action_counts_dist - self.action_dist)
+        repetitiveness = value_closeness.sum()
+        reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4)
+        if repetitiveness > 1:
+            print(f"\t agent is not exploring enough dif= {value_closeness.sum()}") 
+
+        if self.time <= 5 and car_state.speed < MIN_SPEED:
+            print("waiting for car to move")
+            return reward_speed
 
         # if car is stuck, return -KILL_PENALTY, if any 
         if state["speed_moving_avg"] < MIN_SPEED:
@@ -197,17 +206,11 @@ class CarEnv(gym.Env):
         elif reward_dist < 0 or reward_speed < 0:
             reward = min(reward_dist, reward_speed)
         else:
-            reward = reward_speed + reward_dist + self.time * self.reward_time_scaler
-            # Penalize unbalanced action distributions
-            # action_counts_dist = self.action_counts / self.action_counts.sum()
-            # value_closeness = np.abs(action_counts_dist - self.action_dist)
-            # if value_closeness.sum() > 1:
-            #     reward -= 15
-            #     print(f"\t agent is not exploring enough dif= {value_closeness.sum()}")
-            # else:
-            #     reward += 0.1
+            reward = reward_speed + reward_dist + reward_rep + self.time * self.reward_time_scaler
+            
+    
 
-        print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox))
+        print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox), "d_rep: ", "{:.2f}".format(reward_rep))
         print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))
         
         return reward
