@@ -84,6 +84,14 @@ class ResNetFeatureExtractor(BaseFeaturesExtractor):
         self.resnet.fc = nn.Identity()
         for param in self.resnet.parameters():
             param.requires_grad = False
+        # make last couple layers trainable
+        for param in self.resnet.layer4.parameters():
+            param.requires_grad = True
+        for param in self.resnet.avgpool.parameters():
+            param.requires_grad = True
+        for param in self.resnet.fc.parameters():
+            param.requires_grad = True
+            
         # add a new layer that outputs features_dim
         self.fc = nn.Sequential(
             nn.Linear(2048, features_dim),

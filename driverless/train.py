@@ -15,7 +15,7 @@ from monitoring import init_callback, init_experiment
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
-TIMESTEPS = 1000
+TIMESTEPS = 100
 
 # connect to the AirSim simulator
 client = airsim.CarClient()
@@ -29,7 +29,7 @@ env.reset()
 pretrained_model = None
 
 # create custom model and learn using conv
-model = A2C(
+model = PPO(
     policy=ActorCriticCnnPolicy,
     policy_kwargs={
         "net_arch": [256, 256],
@@ -37,13 +37,13 @@ model = A2C(
         "ortho_init": True,
         "normalize_images": False,
         "features_extractor_class": ResNetFeatureExtractor,
-        "features_extractor_kwargs": dict(features_dim=768),
+        "features_extractor_kwargs": dict(features_dim=256),
     },
     env=env, 
     verbose=1, 
     device='cuda', 
-    n_steps=16,
-    ent_coef=0.1,
+    ent_coef=0.01,
+    batch_size=128,
 )
 
 # load pretrained model

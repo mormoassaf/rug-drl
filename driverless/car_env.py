@@ -146,7 +146,7 @@ class CarEnv(gym.Env):
         
         assert observation.min() >= 0 and observation.max() <= 1
         
-        return observation, scene, 255-planner
+        return observation, scene, (1-planner)*255
 
     def _interpret_action(self, action):
         self.car_controls.brake = 0
@@ -169,7 +169,7 @@ class CarEnv(gym.Env):
     def _compute_reward(self, state, lidar):
         
         car_state = state["car_state"]
-        if self.time <= 10 and car_state.speed < MIN_SPEED:
+        if self.time <= 5 and car_state.speed < MIN_SPEED:
             print("waiting for car to move")
             return 0
         
