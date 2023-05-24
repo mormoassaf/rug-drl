@@ -26,7 +26,7 @@ client.armDisarm(True)
 
 env = CarEnv(client)
 env.reset()
-pretrained_model = None
+pretrained_model = "./models/145000"
 
 # create custom model and learn using conv
 model = A2C(

@@ -20,7 +20,7 @@ def metric2reward(metric, threshold, max_reward=None, min_reward=None, m=2):
 class CarEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, client, frame_rate=FRAME_RATE, reward_time_scaler=0.1):
+    def __init__(self, client, frame_rate=FRAME_RATE, reward_time_scaler=0.001):
         self.client = client
         self.frame_rate = frame_rate
         self.action_space = gym.spaces.Discrete(6)
@@ -45,11 +45,13 @@ class CarEnv(gym.Env):
     def reset(self):
         self.client.reset()
         # place car at random location
-        xs = np.random.randint(-10, 10)
-        ys = np.random.randint(-10, 10)
-        # rotate the car quaternion to face random directions
-        dirs = np.random.randint(0, 360)
-        self.client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(xs, 1, -1), airsim.to_quaternion(0, 0, dirs)), True)
+        x = 1.6 * np.random.random() - 0.8 
+        y = 1.6 * np.random.random() - 0.8
+        # get car angle
+        dirs = np.random.randint(0, 4) * np.pi / 2 
+        dirs += (2*np.random.random()-1) * np.pi / 8 
+        self.client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(x, y, 0), airsim.to_quaternion(0, 0, dirs)), True)
+
         # move car forward
         actions = self._interpret_action(1)
         for _ in range(10):
@@ -192,7 +194,7 @@ class CarEnv(gym.Env):
         action_counts_dist = self.action_counts / self.action_counts.sum()
         value_closeness = np.abs(action_counts_dist - self.action_dist)
         repetitiveness = value_closeness.sum()
-        reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4)
+        reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4) * 0
         if repetitiveness > 1:
             print(f"\t agent is not exploring enough dif= {value_closeness.sum()}") 
 
