@@ -26,7 +26,7 @@ client.armDisarm(True)
 
 env = CarEnv(client)
 env.reset()
-pretrained_model = "./models/145000"
+pretrained_model = "./models/145000.zip"
 
 # create custom model and learn using conv
 model = A2C(
@@ -43,20 +43,21 @@ model = A2C(
     verbose=1, 
     device='cuda', 
     ent_coef=0.01,
+    tensorboard_log="./tensorboard",
 )
 
 # load pretrained model
-if pretrained_model and os.path.exists(pretrained_model):
+if pretrained_model:
     model = A2C.load(pretrained_model, env=env, device='cuda')
     logging.info(f"Loaded model from {pretrained_model}")
 
 
-# init_experiment({
-#     "model": "PPO",
-#     "env": "CarEnv",
-#     "timesteps": TIMESTEPS,
-#     "n_steps": 16,  
-# })
+init_experiment({
+    "model": "A2C",
+    "env": "CarEnv",
+    "timesteps": TIMESTEPS,
+    "n_steps": 16,  
+})
 
 iters = 0
 while True:
@@ -65,7 +66,7 @@ while True:
         total_timesteps=TIMESTEPS, 
         reset_num_timesteps=True, 
         log_interval=50, 
-        # callback=init_callback(),
+        callback=init_callback(),
     )
     model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")

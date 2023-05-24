@@ -195,6 +195,9 @@ class CarEnv(gym.Env):
         value_closeness = np.abs(action_counts_dist - self.action_dist)
         repetitiveness = value_closeness.sum()
         reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4) * 0
+        # Penalize overspeeding 
+        reward_overspeed = -metric2reward(car_state.speed, MAX_SPEED, min_reward=0, max_reward=4)
+
         if repetitiveness > 1:
             print(f"\t agent is not exploring enough dif= {value_closeness.sum()}") 
 
@@ -208,12 +211,11 @@ class CarEnv(gym.Env):
         elif reward_dist < 0 or reward_speed < 0:
             reward = min(reward_dist, reward_speed)
         else:
-            reward = reward_speed + reward_dist + reward_rep + self.time * self.reward_time_scaler
+            reward = reward_overspeed + reward_speed + reward_dist + reward_rep + self.time * self.reward_time_scaler
             
     
 
         print("\033[1;34;40m d: ", "{:.2f}".format(avg_distance), "\033[0m", "d_c: ", "{:.2f}".format(caution_prox), "d_rep: ", "{:.2f}".format(reward_rep))
-        print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed))
-        
+        print("\033[1;32;40m reward: ", "{:.2f}".format(reward), "\033[0m", "r_d: ", "{:.2f}".format(reward_dist), "r_s: ", "{:.2f}".format(reward_speed), "r_over: ", "{:.2f}".format(reward_overspeed))
         return reward
     
