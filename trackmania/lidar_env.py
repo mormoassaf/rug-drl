@@ -22,6 +22,7 @@ class LidarWrapper(gym.Env):
         return obs
 
     def reset(self):
+        self.time = 0
         obs, _ = self.trac_env.reset()
         return self.__transform_observation(obs)
 
