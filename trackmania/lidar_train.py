@@ -8,22 +8,31 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
-TIMESTEPS = 1000000
+TIMESTEPS = 10000
 
 env = LidarWrapper()
 env = DummyVecEnv([lambda: env])
 env.reset()
 
-pretrained_model = None 
+pretrained_model = None
 
 # tracmania model
-model = A2C(
+# model = A2C(
+#     "MlpPolicy",
+#     env,
+#     verbose=1,
+#     tensorboard_log=f"tensorboard/",
+#     device='cuda',
+#     policy_kwargs=dict(net_arch=[dict(pi=[128, 128, 128], vf=[128, 128, 128])]),
+# )
+model = PPO(
     "MlpPolicy",
     env,
     verbose=1,
     tensorboard_log=f"tensorboard/",
     device='cuda',
     policy_kwargs=dict(net_arch=[dict(pi=[128, 128, 128], vf=[128, 128, 128])]),
+    batch_size=512
 )
 
 # load pretrained model
@@ -48,5 +57,6 @@ while True:
         log_interval=50, 
         # callback=init_callback(),
     )
-    model.save(f"{MODELS_DIR}/{model.__class__}-{TIMESTEPS*iters}")
+    class_name = model.__class__.__name__
+    model.save(f"{MODELS_DIR}/{class_name}-{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
