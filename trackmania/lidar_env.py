@@ -11,10 +11,11 @@ class LidarWrapper(gym.Env):
         # shape 4, 19
         self.observation_space = gym.spaces.Box(low=0, high=1, shape=(4, 19), dtype=np.float32)
         self.action_space = gym.spaces.Discrete(3 * df) 
-        self.max_distance = 1000
+        self.max_distance = 2048
 
     def __transform_observation(self, obs):
         obs = obs[1]
+        assert obs.max() <= self.max_distance, "max distance is too small got {}, expected {}".format(obs.max(), self.max_distance)
         obs = obs / self.max_distance
         return obs
 
