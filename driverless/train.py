@@ -11,6 +11,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import torch as th
 from cnn_policy import CNNFeatureExtractor, ResNetFeatureExtractor, SemanticSegFormerFeatureExtractor, LightCNNFeatureExtractor, MobileNetV2FeatureExtractor
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
+from stable_baselines3.dqn import DQN
 from monitoring import init_callback, init_experiment
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
@@ -26,24 +27,41 @@ client.armDisarm(True)
 
 env = CarEnv(client)
 env.reset()
-pretrained_model = "./models/145000.zip"
+pretrained_model = None # "./models/145000.zip"
 
 # create custom model and learn using conv
-model = A2C(
-    policy=ActorCriticCnnPolicy,
+# model = A2C(
+#     policy=ActorCriticCnnPolicy,
+#     policy_kwargs={
+#         "net_arch": [16, 16],
+#         "activation_fn": th.nn.ReLU,
+#         "ortho_init": True,
+#         "normalize_images": False,
+#         "features_extractor_class": LightCNNFeatureExtractor,
+#         "features_extractor_kwargs": dict(features_dim=64),
+#     },
+#     env=env, 
+#     verbose=1, 
+#     device='cuda', 
+#     ent_coef=0.01,
+#     tensorboard_log="./tensorboard",
+# )
+# DQN version
+model = DQN(
+    policy="CnnPolicy",
     policy_kwargs={
-        "net_arch": [16, 16],
+        "net_arch": [128, 128],
         "activation_fn": th.nn.ReLU,
-        "ortho_init": True,
+        # "ortho_init": True,
         "normalize_images": False,
         "features_extractor_class": LightCNNFeatureExtractor,
-        "features_extractor_kwargs": dict(features_dim=64),
+        "features_extractor_kwargs": dict(features_dim=256),
     },
-    env=env, 
-    verbose=1, 
-    device='cuda', 
-    ent_coef=0.01,
+    env=env,
+    verbose=1,
+    device='cuda',
     tensorboard_log="./tensorboard",
+    buffer_size=100
 )
 
 # load pretrained model
@@ -68,7 +86,7 @@ while True:
         log_interval=50, 
         callback=init_callback(),
     )
-    model.save(f"{MODELS_DIR}/{TIMESTEPS*iters}")
+    model.save(f"{MODELS_DIR}/dqn-{TIMESTEPS*iters}")
     logging.info(f"Saved model at {MODELS_DIR}/{TIMESTEPS*iters}")
 
 # for eps_i in range(NUM_EPISODES):

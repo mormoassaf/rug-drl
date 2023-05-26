@@ -194,7 +194,7 @@ class CarEnv(gym.Env):
         action_counts_dist = self.action_counts / self.action_counts.sum()
         value_closeness = np.abs(action_counts_dist - self.action_dist)
         repetitiveness = value_closeness.sum()
-        reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4) * 0
+        reward_rep = metric2reward(-repetitiveness, -1, min_reward=-4)
         # Penalize overspeeding 
         reward_overspeed = -metric2reward(car_state.speed, MAX_SPEED, min_reward=0, max_reward=4)
 
