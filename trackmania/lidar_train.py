@@ -14,7 +14,7 @@ env = LidarWrapper()
 env = DummyVecEnv([lambda: env])
 env.reset()
 
-pretrained_model = None
+pretrained_model = "./artifacts/PPO-340000.zip"
 
 # tracmania model
 # model = A2C(
