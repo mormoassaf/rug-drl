@@ -25,7 +25,7 @@ def save_experiment(outfolder="./runs"):
 
 def init_experiment(config):
     wandb.init(
-        project="rug-drl-driverless",
+        project="rug-drl-trackmania",
         config=config,
     )
 

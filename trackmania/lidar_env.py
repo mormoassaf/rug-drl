@@ -24,7 +24,7 @@ def dummy_model(lidar):
 
 # env wrapper that only gets the LIDAR observations
 class LidarWrapper(gym.Env):
-    def __init__(self, env=get_environment(), df=4):
+    def __init__(self, env=get_environment(), df=2):
         self.trac_env = env
         self.df = df
         # shape 4, 19
@@ -32,6 +32,7 @@ class LidarWrapper(gym.Env):
         self.action_space = gym.spaces.Discrete(3 * df) 
         self.max_distance = 600
         self.time = 0
+        self.speeds = [0.0, 0.0, 0.0]
 
     def __transform_observation(self, obs):
         obs = obs[1]
@@ -64,10 +65,17 @@ class LidarWrapper(gym.Env):
         action_cosine = np.dot(action, dummy_action) / (np.linalg.norm(action) * np.linalg.norm(dummy_action) + 1e-8)
         reward_dummy = 0.01 * (action_cosine + 1.0) / 2.0
 
-        final_reward = rew + reward_speed + reward_dummy
+        final_reward = rew# + reward_speed + reward_dummy
         if terminated or truncated:
             final_reward = -1
-        
+
+        # Compute gradient of speeds to check if we had a collision, if car slows down suddenly, give negative reward
+        self.speeds.pop(0)
+        self.speeds.append(speed.item())
+        gradient = np.gradient(self.speeds)
+
+        if np.min(gradient) <= -MAX_SPEED/4:
+            final_reward = -4
 
         print("\033[92m{}\033[0m, rew_speed={}, rew_dummy={}, rew={}, speed={}, done={}".format(final_reward, reward_speed, reward_dummy, rew, speed, terminated))
         obs = self.__transform_observation(obs)
